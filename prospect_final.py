@@ -266,9 +266,9 @@ def costPerPound(df_len,mode):
 
 ########################### ZONES #########################################
 print("Zones")
-df['Shipper_3digit_zip']=df[shipper_zip].astype(str).str[:3]
-df['Consignee_3digit_zip']=df[consignee_zip].astype(str).str[:3]
-df['Distance'] = df.apply(lambda row: geodesic((row['lat1'], row['long1']), (row['lat'], row['long'])).miles, axis=1)
+# df['Shipper_3digit_zip']=df[shipper_zip].astype(str).str[:3]
+# df['Consignee_3digit_zip']=df[consignee_zip].astype(str).str[:3]
+# df['Distance'] = df.apply(lambda row: geodesic((row['lat1'], row['long1']), (row['lat'], row['long'])).miles, axis=1)
 # df['FEDEX_Zone'] = np.where((df['Distance'] >= 0) & (df['Distance'] <= 150), 'Zone2',
 #                                np.where((df['Distance'] >= 151) & (df['Distance'] <= 300), 'Zone3',
 #                                         np.where((df['Distance'] >= 301) & (df['Distance'] <= 600), 'Zone4',
@@ -733,12 +733,47 @@ def find_outliers_zscore(data, threshold=3):
 
 # savings=(charge1-derived_cost)
 
+# st.header("Inventory Transfer Cost Savings")
+
+
+# data = {
+#     " ": ["Total Trucks actually used","Weight", "Cost $", "Optimal Trucks", "Optimal Trucks Cost $"],
+#     "   ": [str(f'{count1:,}'),str(f'{weight1:,}'), str(f'{transfer_shipments[charge].sum():,}'), str(f'{round(optimal_truck):,}'), str(f'{round(derived_cost):,}')]
+# }
+
+# dfasas = pd.DataFrame(data)
+# df_inventory_savings=dfasas.reset_index(drop=True)
+# st.dataframe(df_inventory_savings.reset_index(drop=True))
+# st.header("Savings $"+str(f'{round(savings):,}'))
+################################ warehouse ######################################
+st.subheader("------------------------------------------------------------------------------")
+st.header("Additional Potential Savings")
+#additional savings 
+d=['Consolidation weekwise']
+c=[31753]
+saving_percentage=int(((sum(c))/(total_charge))*100)
+total_saving=int(sum(c))
+st.subheader("Total Savings $"+str(f'{total_saving:,}')+" ("+str(saving_percentage)+"%)")
+
+
+cons_by_LTL = LTL_TL_cons(consolidation_by_mode_LTL.groupby([shipper_city,shipper_zip,shipper_state,consignee_state,consignee_zip,'Shipper_3digit_zip','Consignee_3digit_zip',
+                                                       'Consolidated_data', 'WeekNumber']).agg(aggregation_functions),'WeekNumber'," Weekwise")
+
 st.header("Warehouse Analysis Based On Distance")
+
+# Debug print to check the initial DataFrame shape
+print("Initial DataFrame shape:", df.shape)
 
 df=df[(df[shipper_country]=='US') & (df[consignee_country]=='US')]# taking US to US
 
-considering_outbound = df[df[shipper_zip].isin(shipper_zips_of_interest)]
-considering_outbound=considering_outbound[considering_outbound[weight]<10000]
+# Debug print to check the shape after filtering by shipper_zips_of_interest
+considering_outbound = df.copy()
+# print("Shape after filtering by shipper_zips_of_interest:", considering_outbound.shape)
+# print(df[shipper_zip].head())
+# print(df[shipper_zips_of_interest].head())
+# Debug print to check the shape after filtering by weight
+considering_outbound = considering_outbound[considering_outbound[weight]<10000]
+# print("Shape after filtering by weight:", considering_outbound.shape)
 
 print("Warehouse list",set(considering_outbound[shipper_zip]))
 p=considering_outbound[[shipper_zip,shipper_state,'lat1','long1']]
@@ -983,4 +1018,4 @@ with col2:
 
 print("successfully executed")
 
-                    
+
