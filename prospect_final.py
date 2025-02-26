@@ -10,6 +10,7 @@ from streamlit_folium import folium_static
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+
 #setting page icon
 st.set_page_config(
     page_title="Prospect Analysis",
@@ -23,7 +24,7 @@ print(df.columns)
 st.title("PROSPECT RECOMMENDATIONS")
 df_zip=pd.read_excel(r"ZIp_lat_long_Pooja.xlsb")
 
-# df_datRates=pd.read_excel(r"TL_Rates_Sears.xlsx")
+df_datRates=pd.read_excel(r"output_rates.xlsx")
 # new_column_names = {
 #     'EstimatedLineTotal': 'Average Market Rate',
 #     'HighLineTotal': 'Ceiling Rate'
@@ -73,7 +74,8 @@ df[count]=df[count].astype(str)
 df['MonthYear'] = df[shipdate].dt.strftime('%B %Y')  
 month_counts = df['MonthYear'].nunique()
 
-st.header("Time Frame "+str(month_counts)+" Months ")
+st.header("Time Frame 3 Months ")
+# st.header("Time Frame "+str(month_counts)+" Months ")
 st.subheader("Shipment Count "+str(f'{data.shape[0]:,}'))
 
 #converting into upper case
@@ -124,8 +126,8 @@ total_charge=int(df[charge].sum())
 st.subheader("Total Spend $"+str(f'{total_charge:,}'))
 
 #savings chart
-name= ['LTL to TL Mode Optimization','TL_DAT Rates']
-savings_total= [3245,3246]
+name= ['LTL to TL Mode Optimization','LTL To TL Consolidation','TL vs TL DAT Rates - Savings','LTL To TL Consolidation Weekwise','Potential Warehouse Savings']
+savings_total= [23035,25081,3917,41031,115764]
 
 
 saving_percentage=int(((sum(savings_total))/(total_charge))*100)
@@ -186,6 +188,7 @@ df1[shipdate] = pd.to_datetime(df[shipdate], errors='coerce').dt.date
 df1['WeekNumber'] = pd.to_datetime(df[shipdate], errors='coerce').dt.isocalendar().week
 
 
+df.to_excel("Miles.xlsx",index=False)
 #Limit
 parcel_limit=7.38
 LTL_limit=106
@@ -264,6 +267,30 @@ def costPerPound(df_len,mode):
                                     
 #     return dat              
 
+# Ensure '# Shipments' column is of the same type in both DataFrames
+# df[count] = df[count].astype(str)
+# df_datRates[count] = df_datRates[count].astype(str)
+
+
+def calculate_rates(row):
+    if row['Dry / Reefer'] == 'Dry':
+        row['Average Rate'] = 2.06 * row['Distance']
+        row['Highest Regional Average Rate'] = 2.38 * row['Distance']
+        row['Lowest Regional Average Rate'] = 1.94 * row['Distance']
+    elif row['Dry / Reefer'] == 'Reefer':
+        row['Average Rate'] = 2.37 * row['Distance']
+        row['Highest Regional Average Rate'] = 2.82 * row['Distance']
+        row['Lowest Regional Average Rate'] = 2.14 * row['Distance']
+    else:  # flatbed
+        row['Average Rate'] = 2.43 * row['Distance']
+        row['Highest Regional Average Rate'] = 2.64 * row['Distance']
+        row['Lowest Regional Average Rate'] = 2.19 * row['Distance']
+    return row
+
+dat = df.apply(calculate_rates, axis=1)
+
+# # Merge the columns from df_datRates to df on # Shipments
+# dat = df.merge(df_datRates[['# Shipments', 'distance_miles', 'Average Rate', 'Highest Regional Average Rate', 'Lowest Regional Average Rate']], on='# Shipments', how='left')
 ########################### ZONES #########################################
 print("Zones")
 # df['Shipper_3digit_zip']=df[shipper_zip].astype(str).str[:3]
@@ -384,8 +411,8 @@ else:
       if LTL_to_PARCEL.shape[0]>1:
             ltltoPARCEL_charge=int(LTL_to_PARCEL[charge].sum())
             st.header("LTL To Parcel Mode Optimization")
-            st.write(":red[Exclusion from Savings: Component Excluded Due to Null Charges]")
-            st.subheader("Based On Weight We Recommend " + f":red[{str(f'{LTL_to_PARCEL.shape[0]:,}')}]"+ " Shipments Can Be Shipped via PARCEL Ground")
+            st.write(":red[Excluded from Savings]")
+            st.subheader("Based On Weight We Recommend " + f"{str(f'{LTL_to_PARCEL.shape[0]:,}')}"+ " Shipments Can Be Shipped via PARCEL Ground")
             # st.subheader("Opportunities: Based On Weight We Recommend <span style='color:red;'>" + str(f'{LTL_to_PARCEL.shape[0]:,}')+ "</span> Shipments Can Be Shipped via PARCEL Ground", unsafe_allow_html=True)
 
             LTL_to_PARCEL[charge] = '$ ' + LTL_to_PARCEL[charge].astype(str)
@@ -438,8 +465,8 @@ print("Parcel to LTL completed")
 print("LTL to TL")
 ltl=df[df['Mode']=='LTL']
 LTL_to_TL=ltl[ltl[weight]>10000]
-LTL_to_TL['Estimated Freight$']=0
-# LTL_to_TL['Estimated Freight$']=dat_Rates(LTL_to_TL,shipper_zip,'Ceiling Rate')
+# LTL_to_TL['Estimated Freight$']=0
+LTL_to_TL['Estimated Freight$']=dat['Average Rate']
 LTL_to_TL=LTL_to_TL[LTL_to_TL['Estimated Freight$']!=0]
 
 if LTL_to_TL.shape[0]>1:
@@ -451,6 +478,7 @@ if LTL_to_TL.shape[0]>1:
     LTL_to_TL=LTL_to_TL.astype({'Savings':int,'Estimated Freight$':int})
     PARCELtoltl_Savings=int(LTL_to_TL['Savings'].sum())
     PARCELtoltl_charge=int(LTL_to_TL[charge].sum())
+    LTL_to_TL_estimated_charge=int(LTL_to_TL['Estimated Freight$'].sum())
 
     LTL_to_TL=LTL_to_TL.sort_values(by='Savings',ascending=False)# sort_by_savings
     #formatting
@@ -459,13 +487,14 @@ if LTL_to_TL.shape[0]>1:
     LTL_to_TL[charge] = '$ ' + LTL_to_TL[charge].astype(str)
     LTL_to_TL['Estimated Freight$'] = '$ ' + LTL_to_TL['Estimated Freight$'].astype(str)
     LTL_to_TL['Savings'] = '$ ' + LTL_to_TL['Savings'].astype(str)
-    # st.write(LTL_to_TL[[count,shipper_zip,consignee_zip,carriername,weight,charge,'Estimated Freight$','Savings']].reset_index(drop=True)) 
-    st.subheader("Total Spend $"+str(f'{PARCELtoltl_charge:,}'))                         
+    st.write(LTL_to_TL[[count,shipper_zip,consignee_zip,carriername,weight,charge,'Estimated Freight$','Savings']].reset_index(drop=True)) 
+    st.subheader("Total Spend $"+str(f'{PARCELtoltl_charge:,}'))      
+    st.subheader("Total Estimated Spend $"+str(f'{LTL_to_TL_estimated_charge:,}'))                   
     st.subheader("Total Savings $"+str(f'{PARCELtoltl_Savings:,}')) 
 else:
       ltl=df1[df1['Mode']=='LTL']
       LTL_to_TL=ltl[ltl[weight]>10000]
-    #   LTL_to_TL['Estimated Freight$']=dat_Rates(LTL_to_TL,shipper_zip,'Ceiling Rate')
+      LTL_to_TL['Estimated Freight$']=dat['Average Rate']
       if LTL_to_TL.shape[0]>1:
             PARCELtoltl_charge=int(LTL_to_TL[charge].sum())
 
@@ -482,12 +511,12 @@ print("consolidation")
 # df['Consolidated_data']=df[consignee_name]+df[consignee_city]+df[consignee_state]+df[consignee_zip]
 df['Consolidated_data']=df[consignee_state]+df[consignee_zip].astype(str)
 consolidation=df[[shipper_city,shipper_state,shipper_zip,count,shipdate,carriername,consignee_zip,consignee_state,'Shipper_3digit_zip','Consignee_3digit_zip',
-                  'Mode','Consolidated_data',weight,charge,'WeekNumber']]
+                  'Mode','Consolidated_data',weight,charge,'WeekNumber','Dry / Reefer']]
 consolidation.dropna(inplace=True)
 
 df1['Consolidated_data']=df1[consignee_name]+df1[consignee_city]+df1[consignee_state]+df1[consignee_zip]
 consolidation1=df1[[shipper_city,shipper_state,shipper_zip,count,shipdate,carriername,consignee_zip,consignee_state,'Shipper_3digit_zip','Consignee_3digit_zip',
-                  'Mode','Consolidated_data',weight,charge,'WeekNumber']]
+                  'Mode','Consolidated_data',weight,charge,'WeekNumber','Dry / Reefer']]
 consolidation1.dropna(inplace=True)
 
 #PARCEL consolidation
@@ -608,22 +637,30 @@ aggregation_functions = {
     charge: 'sum'      
 }
 
+def determine_dry_reefer(group):
+    unique_values = group.unique()
+    return unique_values[0] if len(unique_values) == 1 else 'Mixed'
+
 def LTL_TL_cons(consbyLTL,a,var):
     consbyLTL=consbyLTL.reset_index()
     print(consbyLTL)
     shipment_consolidated_LTL=consbyLTL[consbyLTL['# Shipments']>1]
     if shipment_consolidated_LTL.shape[0]>1:
-        st.header('LTL To TL Consolidation'+var)
+        st.header('LTL To TL Consolidation '+var)
         shipment_consolidated_LTL1=shipment_consolidated_LTL.reset_index().sort_values(by='# Shipments',ascending=False)
         st.subheader("In LTL Out Of "+str(f'{consolidation_by_mode_LTL.shape[0]:,}')
                     +" Shipments, "+str(shipment_consolidated_LTL1.shape[0])+" Can Be Consolidated")
         
-              
-        # shipment_consolidated_LTL1[weight] = shipment_consolidated_LTL1[weight].apply(lambda x: min(x, 40000))
+        # Determine 'Dry / Reefer' value
+        shipment_consolidated_LTL1['Dry / Reefer'] = shipment_consolidated_LTL1.groupby(
+            [shipper_zip, consignee_zip]  # Group by relevant columns
+        )['Dry / Reefer'].transform(determine_dry_reefer)
+
+
         shipment_consolidated_LTL1[charge]=shipment_consolidated_LTL1[charge].astype(str)
         shipment_consolidated_LTL1[charge]='$ '+shipment_consolidated_LTL1[charge].astype(str)
 
-        st.write(shipment_consolidated_LTL1[[shipper_city,a,'Consolidated_data',weight,charge,'# Shipments']].reset_index(drop=True))
+        st.write(shipment_consolidated_LTL1[[shipper_zip,shipper_state,a,'Consolidated_data',weight,charge,'# Shipments','Dry / Reefer']].reset_index(drop=True))
         shipment_consolidated_LTL1[charge]=shipment_consolidated_LTL1[charge].str.replace('$', '')
         shipment_consolidated_LTL1[charge]=shipment_consolidated_LTL1[charge].astype(int)
 
@@ -631,11 +668,11 @@ def LTL_TL_cons(consbyLTL,a,var):
         shipment_consolidated_LTL_TL=shipment_consolidated_LTL1[(shipment_consolidated_LTL1[weight]>10000)]
         if (shipment_consolidated_LTL_TL.shape[0]>1):
             shipment_consolidated_LTL_TL[weight] = shipment_consolidated_LTL_TL[weight].apply(lambda x: min(x, 40000))
-            shipment_consolidated_LTL_TL['Estimated Freight$']=0
-            # shipment_consolidated_LTL_TL['Estimated Freight$']=dat_Rates(shipment_consolidated_LTL_TL,shipper_zip,'Ceiling Rate')
+            # shipment_consolidated_LTL_TL['Estimated Freight$']=0
+            shipment_consolidated_LTL_TL['Estimated Freight$']=dat['Average Rate']
 
-            shipment_consolidated_LTL_TL = shipment_consolidated_LTL_TL[shipment_consolidated_LTL_TL['Estimated Freight$'] ==0]
-            # shipment_consolidated_LTL_TL = shipment_consolidated_LTL_TL[shipment_consolidated_LTL_TL['Estimated Freight$'] !=0]
+            # shipment_consolidated_LTL_TL = shipment_consolidated_LTL_TL[shipment_consolidated_LTL_TL['Estimated Freight$'] ==0]
+            shipment_consolidated_LTL_TL = shipment_consolidated_LTL_TL[shipment_consolidated_LTL_TL['Estimated Freight$'] !=0]
             
 
 
@@ -645,6 +682,7 @@ def LTL_TL_cons(consbyLTL,a,var):
             shipment_consolidated_LTL_TL=shipment_consolidated_LTL_TL.astype({'Savings':int,'Estimated Freight$':int})
             consolidation_Savings=int(shipment_consolidated_LTL_TL['Savings'].sum())
             consolidation_charge=int(shipment_consolidated_LTL_TL[charge].sum())
+            consolidation_estimated_charge = int(shipment_consolidated_LTL_TL['Estimated Freight$'].sum())
 
             shipment_consolidated_LTL_TL=shipment_consolidated_LTL_TL.sort_values(by='Savings',ascending=False)#sort_by_savings
             #formatting
@@ -653,57 +691,72 @@ def LTL_TL_cons(consbyLTL,a,var):
             shipment_consolidated_LTL_TL[charge] = '$ ' + shipment_consolidated_LTL_TL[charge].astype(str)
             shipment_consolidated_LTL_TL['Estimated Freight$'] = '$ ' + shipment_consolidated_LTL_TL['Estimated Freight$'].astype(str)
             shipment_consolidated_LTL_TL['Savings'] = '$ ' + shipment_consolidated_LTL_TL['Savings'].astype(str)
-            st.write(shipment_consolidated_LTL_TL[[shipper_city,a,'Consolidated_data',weight,charge,'# Shipments','Estimated Freight$','Savings']].reset_index(drop=True))
+            st.write(shipment_consolidated_LTL_TL[[shipper_zip,shipper_state,a,'Consolidated_data',weight,charge,'# Shipments','Estimated Freight$','Savings','Dry / Reefer']].reset_index(drop=True))
             st.subheader("Total Spend $"+str(f'{consolidation_charge:,}'))
+            st.subheader("Total Estimated Charge $"+str(f'{consolidation_estimated_charge:,}'))
             st.subheader("Total Savings $"+str(f'{consolidation_Savings:,}'))
     print("LTL to TL consolidation completed")
 
 
-cons_by_LTL = LTL_TL_cons(consolidation_by_mode_LTL.groupby([shipper_city,shipper_zip,shipper_state,consignee_state,consignee_zip,'Shipper_3digit_zip','Consignee_3digit_zip',
+cons_by_LTL = LTL_TL_cons(consolidation_by_mode_LTL.groupby([shipper_city,shipper_zip,shipper_state,consignee_state,consignee_zip,'Dry / Reefer','Shipper_3digit_zip','Consignee_3digit_zip',
                                                        'Consolidated_data', shipdate]).agg(aggregation_functions),shipdate," ")
+
+# Filter data by shipment type
+# dry_shipments = consolidation_by_mode_LTL[consolidation_by_mode_LTL['Dry / Reefer'] == 'Dry']
+# reefer_shipments = consolidation_by_mode_LTL[consolidation_by_mode_LTL['Dry / Reefer'] == 'Reefer']
+
+# # Filter for mixed shipments (consolidations that have both dry and reefer)
+# mixed_shipments = consolidation_by_mode_LTL.groupby('Consolidated_data').filter(
+#     lambda x: set(x['Dry / Reefer']) == {'Dry', 'Reefer'}
+# )
+
+# Calculate savings for each type
+# cons_by_LTL_dry = LTL_TL_cons(dry_shipments.groupby([shipper_city, shipper_zip, shipper_state, consignee_state, consignee_zip, 'Shipper_3digit_zip', 'Consignee_3digit_zip', 'Consolidated_data', shipdate]).agg(aggregation_functions), shipdate, "Dry")
+# cons_by_LTL_reefer = LTL_TL_cons(reefer_shipments.groupby([shipper_city, shipper_zip, shipper_state, consignee_state, consignee_zip, 'Shipper_3digit_zip', 'Consignee_3digit_zip', 'Consolidated_data', shipdate]).agg(aggregation_functions), shipdate, "Reefer")
+# cons_by_LTL_mixed = LTL_TL_cons(mixed_shipments.groupby([shipper_city, shipper_zip, shipper_state, consignee_state, consignee_zip, 'Shipper_3digit_zip', 'Consignee_3digit_zip', 'Consolidated_data', shipdate]).agg(aggregation_functions), shipdate, "Mixed")
 
 ##################################### TRUCKLOAD #########################################################
 
-# st.header('TL vs TL DAT Rates')
-# st.write ("As of today's date rate")
-# # st.header('TL to TL_DAT Rates <span style="font-size:small;">(As on 4/25/2024 rates)</span>', unsafe_allow_html=True)
+st.header('TL vs TL DAT Rates')
+st.write ("As of today's date rate")
+# st.header('TL to TL_DAT Rates <span style="font-size:small;">(As on 4/25/2024 rates)</span>', unsafe_allow_html=True)
 
-# df_tl=df[df[weight]>=10000]
+df_tl=df[df['Mode']=='TL']
 
-# # df_tl['Average Market Rate']=dat_Rates(df_tl,shipper_zip,'Average Market Rate')
-# # df_tl['Celing Rate']=dat_Rates(df_tl,shipper_zip,'Ceiling Rate')
-# df_tl=df_tl[(df_tl['Average Market Rate']>0) & (df_tl['Celing Rate']>0)]
-# print(df_tl)
-# #setting limit
-# # df_tl.loc[(df_tl[charge] <truckload_limit),charge ]=truckload_limit
-# df_tl['Market savings']=df_tl[charge]-df_tl['Average Market Rate']
-# df_tl['celing savings']=df_tl[charge]-df_tl['Celing Rate']
+df_tl['Average Market Rate']=dat['Average Rate']
+df_tl['Celing Rate']=dat['Highest Regional Average Rate']
+df_tl=df_tl[(df_tl['Average Market Rate']>0) & (df_tl['Celing Rate']>0)]
+print(df_tl)
+#setting limit
+# df_tl.loc[(df_tl[charge] <truckload_limit),charge ]=truckload_limit
+df_tl['Market savings']=df_tl[charge]-df_tl['Average Market Rate']
+df_tl['celing savings']=df_tl[charge]-df_tl['Celing Rate']
 
-# df_tl=df_tl[(df_tl['Market savings']>0) & (df_tl['celing savings']>0)]
+df_tl=df_tl[(df_tl['Market savings']>0) & (df_tl['celing savings']>0)]
 
-# total=int(df_tl[charge].sum())
-# estimated=int(df_tl['Market savings'].sum())
-# high=int(df_tl['celing savings'].sum())
-# print(total)
-# print(estimated)
-# print(high)
-# # savings_estimated=round(((estimated)/total)*100,2)
-# try:
-#   savings_high=round(((high)/total)*100,2)
-# except:
-#       savings_high =0   
+total=int(df_tl[charge].sum())
+estimated=int(df_tl['Market savings'].sum())
+high=int(df_tl['celing savings'].sum())
+print(total)
+print(estimated)
+print(high)
+savings_estimated=round(((estimated)/total)*100,2)
+try:
+  savings_high=round(((high)/total)*100,2)
+except:
+      savings_high =0   
 
-# df_tl['Average Market Rate']=df_tl['Average Market Rate'].round(2)
-# df_tl['Celing Rate']=df_tl['Celing Rate'].round(2)
-# #formatting
-# df_tl[charge]='$ ' + df_tl[charge].astype(str)
-# df_tl['Average Market Rate']= '$ ' + df_tl['Average Market Rate'].astype(str)
-# df_tl['Celing Rate']= '$ ' + df_tl['Celing Rate'].astype(str)
-# st.dataframe(df_tl[['sZip','cZip','Charge','Average Market Rate','Celing Rate']].reset_index(drop=True))
-# st.subheader("Total Audited Charge $"+str(f'{total:,}'))
-# # st.subheader('Average Market Rate - Savings '+str(f'{(estimated):,}')+" ("+str(savings_estimated)+"%)")
-# st.subheader('Ceiling Rate - Savings $'+str(f'{(high):,}')+" ("+str(savings_high)+"%)")
-# print("DAT rates completed")
+df_tl['Average Market Rate']=df_tl['Average Market Rate'].round(2)
+df_tl['Celing Rate']=df_tl['Celing Rate'].round(2)
+#formatting
+df_tl[charge]='$ ' + df_tl[charge].astype(str)
+df_tl['Average Market Rate']= '$ ' + df_tl['Average Market Rate'].astype(str)
+df_tl['Celing Rate']= '$ ' + df_tl['Celing Rate'].astype(str)
+st.dataframe(df_tl[['sZip','cZip','Charge','Average Market Rate','Celing Rate']].reset_index(drop=True))
+st.subheader("Total Spend $"+str(f'{total:,}'))
+st.subheader('Average Market Rate - Savings '+str(f'{(estimated):,}')+" ("+str(savings_estimated)+"%)")
+st.subheader('Ceiling Rate - Savings $'+str(f'{(high):,}')+" ("+str(savings_high)+"%)")
+print("DAT rates completed")
 
 ########################################## Inventory transfer cost ##############################################
 
@@ -750,13 +803,13 @@ st.subheader("------------------------------------------------------------------
 st.header("Additional Potential Savings")
 #additional savings 
 d=['Consolidation weekwise']
-c=[31753]
+c=[44393]
 saving_percentage=int(((sum(c))/(total_charge))*100)
 total_saving=int(sum(c))
-st.subheader("Total Savings $"+str(f'{total_saving:,}')+" ("+str(saving_percentage)+"%)")
+# st.subheader("Total Savings $"+str(f'{total_saving:,}')+" ("+str(saving_percentage)+"%)")
 
 
-cons_by_LTL = LTL_TL_cons(consolidation_by_mode_LTL.groupby([shipper_city,shipper_zip,shipper_state,consignee_state,consignee_zip,'Shipper_3digit_zip','Consignee_3digit_zip',
+cons_by_LTL = LTL_TL_cons(consolidation_by_mode_LTL.groupby([shipper_city,shipper_zip,shipper_state,consignee_state,consignee_zip,'Dry / Reefer','Shipper_3digit_zip','Consignee_3digit_zip',
                                                        'Consolidated_data', 'WeekNumber']).agg(aggregation_functions),'WeekNumber'," Weekwise")
 
 st.header("Warehouse Analysis Based On Distance")
@@ -960,6 +1013,8 @@ preferred_loc['CPM']=preferred_loc['CPM']
 preferred_loc=preferred_loc[preferred_loc['CPM']!=0]    
 preferred_loc['Estimated $'] = preferred_loc['CPM'] * preferred_loc['Preferred_Distance']
 
+
+
 #setting limit
 preferred_loc.loc[(preferred_loc['Mode'] == 'PARCEL') & (preferred_loc['Estimated $'] < parcel_limit), 'Estimated $'] = parcel_limit
 preferred_loc.loc[(preferred_loc['Mode'] == 'LTL') & (preferred_loc['Estimated $'] < LTL_limit), 'Estimated $'] = LTL_limit
@@ -979,6 +1034,7 @@ print(preferred_loc)
 warehouseSavings=int(preferred_loc['Savings'].sum())
 warehousecharge=int(preferred_loc[charge].sum())
 print(warehouseSavings)
+warehouseestimated = int(preferred_loc['Estimated $'].sum())
 
 # print('savings',warehouseSavings-(weight_non_optimal_warehouse*cost_of_single_tl))
 
@@ -987,19 +1043,27 @@ preferred_loc=preferred_loc.sort_values(by='Savings',ascending=False)# sort_by_s
 st.write("Out of total "+ str(considering_outbound.shape[0])+" Lanes ,"+ str(preferred_loc.shape[0])+
          " lanes can be shipped from a warehouse that is closer (with a 100 mile tolerance). ")
 
+preferred_loc.to_excel('preferred_loc.xlsx')
+
 preferred_loc['Estimated $']=preferred_loc[charge]-preferred_loc['Savings']
 preferred_loc['Estimated $'] = preferred_loc['Estimated $'].round(2)
 preferred_loc[charge] = '$ ' + preferred_loc[charge].astype(str)
 preferred_loc['Estimated $'] = '$ ' + preferred_loc['Estimated $'].astype(str)
 preferred_loc['Savings'] = '$ ' + preferred_loc['Savings'].astype(str)
 
+
 grouped_df1 = preferred_loc.groupby(['sState', 'sZip','cState','cZip','preferred_loc', 'preferred_state']).size().reset_index(name=count)
 
 pivot1=(grouped_df1.sort_values(count,ascending=False)).reset_index(drop=True).head(5)
 
-st.dataframe(preferred_loc[[count,shipper_zip,shipper_city,shipper_state,consignee_zip,consignee_city,consignee_state,weight,charge,'preferred_loc','preferred_state','differnece_distance','Estimated $','Savings']].reset_index(drop=True))
+# warehousesavings = preferred_loc['Savings'].sum()
+
+
+
+st.dataframe(preferred_loc[[count,shipper_zip,shipper_state,consignee_zip,consignee_state,weight,charge,'preferred_loc','preferred_state','differnece_distance','Estimated $','Savings']].reset_index(drop=True))
 st.subheader("Total Spend $"+str(f'{warehousecharge:,}'))
-# st.subheader("Total Savings $"+str(f'{round(warehouseSavings-(weight_non_optimal_warehouse*cost_of_single_tl)):,}'))
+st.subheader("Total Estimated Spend $"+str(f'{warehouseestimated:,}'))
+st.subheader("Total Savings $"+str(f'{warehouseSavings:,}'))
 st.subheader("Efficient Warehouse Utilization: Localized Shipping Solutions")
 # st.dataframe(pivot)
 # st.dataframe(pivot1)
@@ -1017,5 +1081,3 @@ with col2:
     st.write(pivot1)
 
 print("successfully executed")
-
-
