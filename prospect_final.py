@@ -127,7 +127,7 @@ st.subheader("Total Spend $"+str(f'{total_charge:,}'))
 
 #savings chart
 name= ['LTL to TL Mode Optimization','LTL To TL Consolidation','TL vs TL DAT Rates - Savings','LTL To TL Consolidation Weekwise','Potential Warehouse Savings']
-savings_total= [23035,25081,3917,41031,115764]
+savings_total= [19557,22206,3426,35517,115764]
 
 
 saving_percentage=int(((sum(savings_total))/(total_charge))*100)
@@ -273,18 +273,18 @@ def costPerPound(df_len,mode):
 
 
 def calculate_rates(row):
-    if row['Dry / Reefer'] == 'Dry':
-        row['Average Rate'] = 2.06 * row['Distance']
-        row['Highest Regional Average Rate'] = 2.38 * row['Distance']
-        row['Lowest Regional Average Rate'] = 1.94 * row['Distance']
-    elif row['Dry / Reefer'] == 'Reefer':
-        row['Average Rate'] = 2.37 * row['Distance']
-        row['Highest Regional Average Rate'] = 2.82 * row['Distance']
-        row['Lowest Regional Average Rate'] = 2.14 * row['Distance']
-    else:  # flatbed
-        row['Average Rate'] = 2.43 * row['Distance']
-        row['Highest Regional Average Rate'] = 2.64 * row['Distance']
-        row['Lowest Regional Average Rate'] = 2.19 * row['Distance']
+    # if row['Dry / Reefer'] == 'Dry':
+    #     row['Average Rate'] = 2.06 * row['Distance']
+    #     row['Highest Regional Average Rate'] = 2.38 * row['Distance']
+    #     row['Lowest Regional Average Rate'] = 1.94 * row['Distance']
+    # elif row['Dry / Reefer'] == 'Reefer':
+    row['Average Rate'] = 2.37 * row['Distance']
+    row['Highest Regional Average Rate'] = 2.82 * row['Distance']
+    row['Lowest Regional Average Rate'] = 2.14 * row['Distance']
+    # else:  # flatbed
+    #     row['Average Rate'] = 2.43 * row['Distance']
+    #     row['Highest Regional Average Rate'] = 2.64 * row['Distance']
+    #     row['Lowest Regional Average Rate'] = 2.19 * row['Distance']
     return row
 
 dat = df.apply(calculate_rates, axis=1)
@@ -378,48 +378,48 @@ print("Zones")
 #     st.subheader("Total Savings $"+str(f'{zone_Savings:,}'))
 # print("Zones part completed")
 ##############################LTL to PARCEL#########################################     
-print("LTL to Parcel")   
-df_ltl=df[df['Mode']=='LTL']
-LTL_to_PARCEL=df_ltl[df_ltl[weight]<150]
-LTL_to_PARCEL['cpp']=costPerPound(LTL_to_PARCEL,'PARCEL')
-LTL_to_PARCEL=LTL_to_PARCEL[LTL_to_PARCEL['cpp']!=0]
-LTL_to_PARCEL['Estimated PARCEL$']=LTL_to_PARCEL['cpp']*LTL_to_PARCEL[weight]
-if LTL_to_PARCEL.shape[0]>1:
-    # setting limit
-    LTL_to_PARCEL.loc[(LTL_to_PARCEL['Estimated PARCEL$'] <parcel_limit),'Estimated PARCEL$' ]=parcel_limit
-    LTL_to_PARCEL['Savings']=LTL_to_PARCEL[charge]-(LTL_to_PARCEL['Estimated PARCEL$'])
-    LTL_to_PARCEL=LTL_to_PARCEL[LTL_to_PARCEL['Savings']>1]
-    #changing datatype
-    LTL_to_PARCEL=LTL_to_PARCEL.astype({'Savings':int,'Estimated PARCEL$':int})
-    ltltoPARCEL_Savings=int(LTL_to_PARCEL['Savings'].sum())             
-    ltltoPARCEL_charge=int(LTL_to_PARCEL[charge].sum())
+# print("LTL to Parcel")   
+# df_ltl=df[df['Mode']=='LTL']
+# LTL_to_PARCEL=df_ltl[df_ltl[weight]<150]
+# LTL_to_PARCEL['cpp']=costPerPound(LTL_to_PARCEL,'PARCEL')
+# LTL_to_PARCEL=LTL_to_PARCEL[LTL_to_PARCEL['cpp']!=0]
+# LTL_to_PARCEL['Estimated PARCEL$']=LTL_to_PARCEL['cpp']*LTL_to_PARCEL[weight]
+# if LTL_to_PARCEL.shape[0]>1:
+#     # setting limit
+#     LTL_to_PARCEL.loc[(LTL_to_PARCEL['Estimated PARCEL$'] <parcel_limit),'Estimated PARCEL$' ]=parcel_limit
+#     LTL_to_PARCEL['Savings']=LTL_to_PARCEL[charge]-(LTL_to_PARCEL['Estimated PARCEL$'])
+#     LTL_to_PARCEL=LTL_to_PARCEL[LTL_to_PARCEL['Savings']>1]
+#     #changing datatype
+#     LTL_to_PARCEL=LTL_to_PARCEL.astype({'Savings':int,'Estimated PARCEL$':int})
+#     ltltoPARCEL_Savings=int(LTL_to_PARCEL['Savings'].sum())             
+#     ltltoPARCEL_charge=int(LTL_to_PARCEL[charge].sum())
 
-    LTL_to_PARCEL=LTL_to_PARCEL.sort_values(by='Savings',ascending=False) # sort_by_savings
-    #formatting
-    st.header("LTL To Parcel Mode Optimization")
-    st.subheader("Based On Weight We Recommend " + str(f'{LTL_to_PARCEL.shape[0]:,}')+ " Shipments Can Be Shipped via PARCEL Ground")
-    LTL_to_PARCEL[charge] = '$ ' + LTL_to_PARCEL[charge].astype(str)
-    LTL_to_PARCEL['Estimated PARCEL$'] = '$ ' + LTL_to_PARCEL['Estimated PARCEL$'].astype(str)
-    LTL_to_PARCEL['Savings'] = '$ ' + LTL_to_PARCEL['Savings'].astype(str)
-    st.write(LTL_to_PARCEL[[count,shipper_zip,consignee_zip,carriername,weight,charge,'Estimated PARCEL$','Savings']].reset_index(drop=True))
-    st.subheader("Total Spend $"+str(f'{ltltoPARCEL_charge:,}'))          
-    st.subheader("Total Savings $"+str(f'{ltltoPARCEL_Savings:,}'))
+#     LTL_to_PARCEL=LTL_to_PARCEL.sort_values(by='Savings',ascending=False) # sort_by_savings
+#     #formatting
+#     st.header("LTL To Parcel Mode Optimization")
+#     st.subheader("Based On Weight We Recommend " + str(f'{LTL_to_PARCEL.shape[0]:,}')+ " Shipments Can Be Shipped via PARCEL Ground")
+#     LTL_to_PARCEL[charge] = '$ ' + LTL_to_PARCEL[charge].astype(str)
+#     LTL_to_PARCEL['Estimated PARCEL$'] = '$ ' + LTL_to_PARCEL['Estimated PARCEL$'].astype(str)
+#     LTL_to_PARCEL['Savings'] = '$ ' + LTL_to_PARCEL['Savings'].astype(str)
+#     st.write(LTL_to_PARCEL[[count,shipper_zip,consignee_zip,carriername,weight,charge,'Estimated PARCEL$','Savings']].reset_index(drop=True))
+#     st.subheader("Total Spend $"+str(f'{ltltoPARCEL_charge:,}'))          
+#     st.subheader("Total Savings $"+str(f'{ltltoPARCEL_Savings:,}'))
 
-else:
-      df_ltl=df1[df1['Mode']=='LTL']
-      LTL_to_PARCEL=df_ltl[df_ltl[weight]<150]
-      if LTL_to_PARCEL.shape[0]>1:
-            ltltoPARCEL_charge=int(LTL_to_PARCEL[charge].sum())
-            st.header("LTL To Parcel Mode Optimization")
-            st.write(":red[Excluded from Savings]")
-            st.subheader("Based On Weight We Recommend " + f"{str(f'{LTL_to_PARCEL.shape[0]:,}')}"+ " Shipments Can Be Shipped via PARCEL Ground")
-            # st.subheader("Opportunities: Based On Weight We Recommend <span style='color:red;'>" + str(f'{LTL_to_PARCEL.shape[0]:,}')+ "</span> Shipments Can Be Shipped via PARCEL Ground", unsafe_allow_html=True)
+# else:
+#       df_ltl=df1[df1['Mode']=='LTL']
+#       LTL_to_PARCEL=df_ltl[df_ltl[weight]<150]
+#       if LTL_to_PARCEL.shape[0]>1:
+#             ltltoPARCEL_charge=int(LTL_to_PARCEL[charge].sum())
+#             st.header("LTL To Parcel Mode Optimization")
+#             st.write(":red[Excluded from Savings]")
+#             st.subheader("Based On Weight We Recommend " + f"{str(f'{LTL_to_PARCEL.shape[0]:,}')}"+ " Shipments Can Be Shipped via PARCEL Ground")
+#             # st.subheader("Opportunities: Based On Weight We Recommend <span style='color:red;'>" + str(f'{LTL_to_PARCEL.shape[0]:,}')+ "</span> Shipments Can Be Shipped via PARCEL Ground", unsafe_allow_html=True)
 
-            LTL_to_PARCEL[charge] = '$ ' + LTL_to_PARCEL[charge].astype(str)
-            st.write(LTL_to_PARCEL[[count,shipper_zip,consignee_zip,carriername,weight]].reset_index(drop=True))
+#             LTL_to_PARCEL[charge] = '$ ' + LTL_to_PARCEL[charge].astype(str)
+#             st.write(LTL_to_PARCEL[[count,shipper_zip,consignee_zip,carriername,weight]].reset_index(drop=True))
              
-            print("LTL to parcel completed")    
-print("LTL to parcel completed")
+#             print("LTL to parcel completed")    
+# print("LTL to parcel completed")
 # ###############################################PARCEL to LTL####################################
 print("Parcel to LTL")
 PARCEL=df[df['Mode']=='PARCEL']
